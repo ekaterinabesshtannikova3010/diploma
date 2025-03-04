@@ -1,0 +1,51 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Профиль пользователя</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
+<body>
+<div class="container">
+    <h1>Привет, {{ user.name }}!</h1>
+    <p>Ваш номер телефона: {{ user.phone_number }}</p>
+
+    <h2>Пользователи, пришедшие по Вашему инвайт-коду:</h2>
+    <ul>
+        {% for invited_user in invited_users %}
+        <li>{{ invited_user.name }} - {{ invited_user.phone_number }}</li>
+        {% empty %}
+        <li>Нет пользователей, пришедших по Вашему инвайт-коду.</li>
+        {% endfor %}
+    </ul>
+    <button id="users:generate-invite-code">Сгенерировать инвайт-код</button>
+    <p id="invite-code-message"></p>
+
+    <h2>Введите чужой инвайт-код для связки пользователей:</h2>
+    <form method="post" action="{% url 'users:link_users' %}">
+        {% csrf_token %}
+        <input type="text" name="invite_code" placeholder="Введите инвайт-код" required>
+        <button type="submit">Связать пользователей</button>
+    </form>
+</div>
+
+<script>
+    document.getElementById('users:generate-invite-code').addEventListener('click', function() {
+        // Логика генерации инвайт-кода
+        fetch("{% url 'users:generate_invite_code' %}", {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('invite-code-message').innerText = 'Ваш инвайт-код: ' + data.invite_code;
+        });
+    });
+</script>
+</body>
+</html>
