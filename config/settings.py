@@ -192,3 +192,34 @@ SIMPLE_JWT = {
 
 SMSAERO_EMAIL = os.getenv("SMSAERO_EMAIL")
 SMSAERO_API_KEY = os.getenv('SMSAERO_API_KEY')
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'default': {
+            'format': '%(asctime)s %(levelname)s %(name)s: %(message)s'
+        }
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler', 'formatter': 'default'
+        },
+        'null': {
+            'class': 'logging.NullHandler',
+        },
+    },
+    'root': {
+        'level': os.getenv('LOG_LEVEL', default='INFO'),
+        'handlers': ['console']
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'], 'propagate': False
+        },
+        'urllib3': {
+            'handlers': ['null'],
+            'propagate': False,
+        },
+    },
+}

@@ -212,7 +212,6 @@ SMSAERO_API_KEY = os.getenv('API_KEY')
 SMSAERO_EMAIL = 'dolmatova3010@yandex.ru'
 import re
 
-logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 """ Django эндпоинты."""
 
@@ -277,7 +276,6 @@ class InviteCodeView(View):
 
     def get(self, request):
         return render(request, 'users/invite_code.html')
-
 
     def send_sms(phone: int, message: str) -> bool:
         """
