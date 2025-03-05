@@ -1,3 +1,4 @@
+import logging
 import os
 import random
 import string
@@ -233,20 +234,25 @@ class AuthView(View):
 api_key = os.getenv('API_KEY')
 SMSAERO_API_KEY = os.getenv('API_KEY')
 SMSAERO_EMAIL = 'dolmatova3010@yandex.ru'
-
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 class InviteCodeView(View):
     """Представление для отправки кода подтверждения на номер телефона."""
 
     def post(self, request):
         phone_number = request.POST.get('phone_number')
-
+        logger.debug("введите номер.")
+        print(request)
+        print(phone_number)
         # Проверяем, что номер телефона не пустой
         if not phone_number:
             messages.error(request, 'Пожалуйста, введите номер телефона.')
+            logger.debug("Пользователь не ввел номер телефона.")
             return render(request, 'users/invite_code.html')
 
         code = str(random.randint(1000, 9999))  # Генерация случайного 4-значного кода
+        logger.debug(f"Сгенерирован код: {code} для номера: {phone_number}")
 
         # Отправляем SMS
         sms_response = self.send_sms(phone_number, f'Ваш код подтверждения: {code}', code)
@@ -256,13 +262,18 @@ class InviteCodeView(View):
             # Успешная отправка SMS
             messages.success(request, 'Код подтверждения отправлен на Ваш номер.')
             request.session['confirmation_code'] = code
+            logger.debug(f"SMS успешно отправлено на номер: {phone_number}. Ответ API: {sms_response}")
             return redirect('verify_code')  # Перенаправление на страницу подтверждения кода
         else:
             messages.error(request, 'Не удалось отправить сообщение, попробуйте еще раз.')
+            logger.error(f"Ошибка отправки SMS на номер: {phone_number}. Ответ API: {sms_response}")
 
         return render(request, 'users/invite_code.html')
 
-    def send_sms(self, phone: str, message: str, code: str) -> dict:
+    def get(self, request):
+        return render(request, 'users/invite_code.html')
+
+    def send_sms(self, phone: int, message: str, code: str) -> dict:
         """
         Отправка SMS сообщения
 
@@ -274,7 +285,98 @@ class InviteCodeView(View):
         dict: Словарь, содержащий ответ от API SmsAero.
         """
         api = SmsAero(SMSAERO_EMAIL, SMSAERO_API_KEY)
+        logger.debug(f"Отправка SMS на номер: {phone}. Сообщение: {message}")
         return api.send_sms(phone, message, code)
+
+# class InviteCodeView(View):
+#     """Представление для отправки кода подтверждения на номер телефона."""
+#
+#     def post(self, request):
+#         phone_number = request.POST.get('phone_number')
+#
+#         # Проверяем, что номер телефона не пустой
+#         if not phone_number:
+#             messages.error(request, 'Пожалуйста, введите номер телефона.')
+#             return render(request, 'users/invite_code.html')
+#
+#         code = str(random.randint(1000, 9999))  # Генерация случайного 4-значного кода
+#
+#         # Отправляем SMS
+#         sms_response = self.send_sms(phone_number, f'Ваш код подтверждения: {code}', code)
+#
+#         # Проверяем, что sms_response не None и имеет статус
+#         if sms_response and sms_response.get('status') == 'success':
+#             # Успешная отправка SMS
+#             messages.success(request, 'Код подтверждения отправлен на Ваш номер.')
+#             request.session['confirmation_code'] = code
+#             return redirect('verify_code')  # Перенаправление на страницу подтверждения кода
+#         else:
+#             messages.error(request, 'Не удалось отправить сообщение, попробуйте еще раз.')
+#
+#         return render(request, 'users/invite_code.html')
+#
+#     def get(self, request):
+#         return render(request, 'users/invite_code.html')
+#
+#     def send_sms(self, phone: str, message: str, code: str) -> dict:
+#         """
+#         Отправка SMS сообщения
+#
+#         Параметры:
+#         phone (str): Номер телефона, на который будет отправлено SMS сообщение.
+#         message (str): Содержимое SMS сообщения.
+#
+#         Возвращает:
+#         dict: Словарь, содержащий ответ от API SmsAero.
+#         """
+#         api = SmsAero(SMSAERO_EMAIL, SMSAERO_API_KEY)
+#         return api.send_sms(phone, message, code)
+
+# class InviteCodeView(View):
+#     """Представление для отправки кода подтверждения на номер телефона."""
+#
+#     def post(self, request):
+#         phone_number = request.POST.get('phone_number')
+#
+#         # Проверяем, что номер телефона не пустой
+#         if not phone_number:
+#             messages.error(request, 'Пожалуйста, введите номер телефона.')
+#             return render(request, 'users/invite_code.html')
+#
+#         code = str(random.randint(1000, 9999))  # Генерация случайного 4-значного кода
+#
+#         # Отправляем SMS
+#         sms_response = self.send_sms(phone_number, f'Ваш код подтверждения: {code}', code)
+#
+#         # Проверяем, что sms_response не None и имеет статус
+#         if sms_response and sms_response.get('status') == 'success':
+#             # Успешная отправка SMS
+#             messages.success(request, 'Код подтверждения отправлен на Ваш номер.')
+#             request.session['confirmation_code'] = code
+#             return redirect('verify_code')  # Перенаправление на страницу подтверждения кода
+#         else:
+#             messages.error(request, 'Не удалось отправить сообщение, попробуйте еще раз.')
+#
+#         return render(request, 'users/invite_code.html')
+#
+#     def get(self, request):
+#         return render(request, 'users/invite_code.html')
+#
+#     def send_sms(self, phone: str, message: str, code: str) -> dict:
+#         """
+#         Отправка SMS сообщения
+#
+#         Параметры:
+#         phone (str): Номер телефона, на который будет отправлено SMS сообщение.
+#         message (str): Содержимое SMS сообщения.
+#
+#         Возвращает:
+#         dict: Словарь, содержащий ответ от API SmsAero.
+#         """
+#         api = SmsAero(SMSAERO_EMAIL, SMSAERO_API_KEY)
+#         return api.send_sms(phone, message, code)
+
+
 
 # class InviteCodeView(View):
 #     """Представление для отправки кода подтверждения на номер телефона."""

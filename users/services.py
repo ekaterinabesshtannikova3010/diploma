@@ -35,7 +35,7 @@ class SMSAero:
         self.api_key = api_key
         self.base_url = "https://smsaero.ru/api/"
 
-    def send_sms(self, phone_number, code):
+    def send_sms(self, phone_number: str, code: str):
         url = f"{self.base_url}sms/send"
         payload = {
             "number": phone_number,
@@ -53,16 +53,22 @@ class SMSAero:
         else:
             raise Exception(f"Ошибка отправки SMS: {response.text}")
 
+    api_user = os.getenv('API_USER')
+    api_key = os.getenv('API_KEY')
+
+    SMSAERO_EMAIL = 'dolmatova3010@yandex.ru'
+    SMSAERO_API_KEY = os.getenv('API_KEY')
+
     # Пример использования
-# if __name__ == "__main__":
-#     api_user = "your_api_user"  # Замените на Ваш API пользователь
-#     api_key = "your_api_key"  # Замените на Ваш API ключ
-#     phone_number = "+1234567890"  # Замените на номер телефона
-#     code = "1234"  # Генерируемый код
-#
-#     sms_aero = SMSAero(api_user, api_key)
-#     try:
-#         response = sms_aero.send_sms(phone_number, code)
-#         print("SMS отправлено:", response)
-#     except Exception as e:
-#         print(e)
+if __name__ == "__main__":
+    api_user = os.getenv('API_USER')  # Замените на Ваш API пользователь
+    api_key = os.getenv('API_KEY')  # Замените на Ваш API ключ
+    phone_number = "89521775201"  # Замените на номер телефона
+    code = "1234"  # Генерируемый код
+
+    sms_aero = SMSAero(api_user, api_key)
+    try:
+        response = sms_aero.send_sms(phone_number, code)
+        print("SMS отправлено:", response)
+    except Exception as e:
+        print(e)

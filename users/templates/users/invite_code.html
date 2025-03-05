@@ -63,9 +63,9 @@
         {% csrf_token %}
         <div class="form-group">
             <label for="phone">Номер телефона:</label>
-            <input type="text" id="phone" name="phone" placeholder="Введите номер телефона" required>
+            <input type="tel" id="phone" name="phone" placeholder="Введите номер телефона" required>
         </div>
-        <button type="submit" class="btn btn-primary">Отправить код</button>
+        <button type="submit" class="btn">Отправить код</button>
     </form>
 
     {% if messages %}
