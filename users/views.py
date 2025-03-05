@@ -23,7 +23,7 @@ from smsaero import SmsAero, SmsAeroException
 
 from .models import User, InviteCode
 from .serializers import UserSerializer, InviteCodeSerializer, MyTokenObtainPairSerializer, AuthSerializer
-from users.services import SMSAero, api_user, send_sms
+from users.services import send_sms
 
 from rest_framework_simplejwt.views import TokenObtainPairView
 import requests
@@ -266,7 +266,6 @@ class InviteCodeView(View):
 
         # Отправляем SMS
         is_success = send_sms(phone_number, f'Ваш код подтверждения: {code}')
-
         if not is_success:
             messages.error(request, 'Не удалось отправить сообщение, попробуйте еще раз.')
             return render(request, 'users/invite_code.html')
