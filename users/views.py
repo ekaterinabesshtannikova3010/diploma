@@ -5,6 +5,8 @@ import string
 from random import randint
 from time import sleep
 
+from django.conf import settings
+from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import JsonResponse
@@ -20,7 +22,7 @@ from rest_framework.views import APIView
 from django.contrib import messages
 from smsaero import SmsAero, SmsAeroException
 
-from .models import User, InviteCode
+from .models import User, InviteCode, LoginCode
 from .serializers import UserSerializer, InviteCodeSerializer, MyTokenObtainPairSerializer, AuthSerializer
 from users.services import SMSAero, api_user, send_sms
 
@@ -228,7 +230,7 @@ class UserRegistrationView(View):
                 user = User.objects.create(phone_number=phone_number, first_name=first_name)
                 user.save()
                 messages.success(request, 'Регистрация прошла успешно!')
-                return redirect('auth')  # Перенаправление на страницу входа
+                return redirect('users:invite_code')  # Перенаправление на страницу входа
             except Exception as e:
                 messages.error(request, f'Ошибка регистрации: {str(e)}')
         else:
@@ -240,20 +242,8 @@ class UserRegistrationView(View):
 class AuthView(View):
     """Представление для авторизации с номером телефона и именем."""
 
-    def post(self, request):
-        phone_number = request.POST.get('phone_number')
-        name = request.POST.get('first_name')
-
-        # Логика авторизации
-        if phone_number and name:  # Проверка на наличие номера телефона и имени
-            messages.success(request, 'Вы успешно авторизованы!')
-            return redirect('users:home')  # Укажите Ваш URL в случае успеха
-        else:
-            messages.error(request, 'Неверный номер телефона или имя!')
-
-        return render(request, 'users/login.html')
-
     def get(self, request):
+        logger.debug('Render login view')
         return render(request, 'users/login.html')
 
 
@@ -281,35 +271,29 @@ class InviteCodeView(View):
             messages.error(request, 'Некорректный номер телефона. Убедитесь, что Вы ввели только цифры.')
             return render(request, 'users/invite_code.html')
 
-        code = str(random.randint(1000, 9999))  # Генерация случайного 4-значного кода
+        code = LoginCode.create_code(str(phone_number))
         logger.debug(f"Сгенерирован код: {code} для номера: {phone_number}")
 
         # Отправляем SMS
-        is_success = send_sms(phone_number, f'Ваш код подтверждения: {code}')
-
+        is_success = self.send_sms(phone_number, f'Ваш код подтверждения: {code}')
         if not is_success:
             messages.error(request, 'Не удалось отправить сообщение, попробуйте еще раз.')
             return render(request, 'users/invite_code.html')
 
+        phone_number = str(phone_number)
         messages.success(request, 'Код подтверждения отправлен на Ваш номер.')
-        request.session['confirmation_code'] = code
+        request.session['phone'] = phone_number
+
         logger.debug(f"SMS успешно отправлено на номер: %s", phone_number)
         return redirect('users:verify_code')
 
     def get(self, request):
         return render(request, 'users/invite_code.html')
 
-    def send_sms(phone: int, message: str) -> bool:
-        """
-        Отправка SMS сообщения
+    def send_sms(self, phone: int, message: str) -> bool:
+        if settings.FAKE_SMS_SUBMIT:
+            return True
 
-        Параметры:
-        phone (str): Номер телефона, на который будет отправлено SMS сообщение.
-        message (str): Содержимое SMS сообщения.
-
-        Возвращает:
-        dict: Словарь, содержащий ответ от API SmsAero.
-        """
         api = SmsAero('dolmatova3010@yandex.ru', 'TNzg_oub8xthiLQpuVli_1gLpr2YaRA6')
         logger.debug(f"Отправка SMS на номер: {phone}. Сообщение: {message}")
 
@@ -332,14 +316,30 @@ class VerifyCodeView(View):
 
     def post(self, request):
         entered_code = request.POST.get('code')
+        phone_number = request.session.get('phone')
 
-        if entered_code == request.session.get('confirmation_code'):
-            invite_code = get_random_string(length=6)
-            messages.success(request, f'Ваш инвайт-код: {invite_code}')
-            return redirect('users:profile')
-        else:
+        login_code = LoginCode.objects.filter(
+            phone_number=phone_number, code=entered_code, is_actual=True
+        ).first()
+        if not login_code:
             messages.error(request, 'Неверный код. Пожалуйста, попробуйте снова.')
             return render(request, 'users/verify_code.html')
+
+        user = User.objects.filter(phone_number=phone_number).first()
+        if not user:
+            LoginCode.objects.filter(phone_number=phone_number).delete()
+            return redirect('users:registration')
+
+        if not user.invite_code:
+            user.invite_code = get_random_string(length=6)
+            user.save()
+
+        login(request, user)
+
+
+        LoginCode.objects.filter(phone_number=phone_number).delete()
+
+        return redirect('users:profile')
 
     def get(self, request):
         return render(request, 'users/verify_code.html')
