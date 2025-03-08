@@ -60,6 +60,8 @@ class SMSAero:
     SMSAERO_API_KEY = os.getenv('API_KEY')
 
     # Пример использования
+
+
 if __name__ == "__main__":
     api_user = os.getenv('API_USER')  # Замените на Ваш API пользователь
     api_key = os.getenv('API_KEY')  # Замените на Ваш API ключ

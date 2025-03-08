@@ -75,6 +75,7 @@ from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 import random
 import string
+from django.db.transaction import atomic
 
 
 class CustomUserManager(BaseUserManager):
@@ -117,7 +118,7 @@ class User(AbstractUser):
     )
 
     USERNAME_FIELD = "phone_number"
-    REQUIRED_FIELDS = ["first_name"]
+    REQUIRED_FIELDS = ["first_name", "email"]
 
     objects = CustomUserManager()
 
@@ -148,3 +149,19 @@ class InviteCode(models.Model):
 
     def __str__(self):
         return self.code
+
+
+def generate_login_code() -> str:
+    return str(random.randint(1000, 9999))
+
+
+class LoginCode(models.Model):
+    phone_number = models.CharField(max_length=15)
+    code = models.CharField(max_length=4, default=generate_login_code)
+    is_actual = models.BooleanField(default=True)
+
+    @classmethod
+    def create_code(cls, phone: str):
+        with atomic():
+            LoginCode.objects.filter(phone_number=phone).update(is_actual=False)
+            return LoginCode.objects.create(phone_number=phone).code

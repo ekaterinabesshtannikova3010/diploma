@@ -81,8 +81,7 @@
         <li>Нет пользователей, пришедших по Вашему инвайт-коду.</li>
         {% endfor %}
     </ul>
-    <button id="users:generate-invite-code">Сгенерировать инвайт-код</button>
-    <p id="invite-code-message"></p>
+    <p id="invite-code-message">{{user.invite_code}}</p>
 
     <h2>Введите чужой инвайт-код для связки пользователей:</h2>
     <form method="post" action="{% url 'users:link_users' %}">
@@ -93,21 +92,5 @@
     <button id="users:home">Выйти</button>
 </div>
 
-<script>
-    document.getElementById('users:generate-invite-code').addEventListener('click', function() {
-        // Логика генерации инвайт-кода
-        fetch("{% url 'users:generate_invite_code' %}", {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}',
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            document.getElementById('invite-code-message').innerText = 'Ваш инвайт-код: ' + data.invite_code;
-        });
-    });
-</script>
 </body>
 </html>
