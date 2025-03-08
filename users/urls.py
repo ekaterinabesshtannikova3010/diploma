@@ -5,8 +5,8 @@ from rest_framework.routers import DefaultRouter
 from . import views
 from .apps import UsersConfig
 from .views import (UserViewSet, MyTokenObtainPairView, LoginView,
-                    AuthView, InviteCodeView, VerifyCodeView, ConfirmCodeView, UserProfileView, GenerateInviteCodeView,
-                    LinkUsersView, AuthView_API, InviteCodeViewSet)
+                    AuthView, InviteCodeView, VerifyCodeView, UserProfileView, GenerateInviteCodeView,
+                    LinkUsersView, AuthView_API, InviteCodeViewSet, UserRegistrationView)
 
 app_name = UsersConfig.name
 
@@ -22,13 +22,15 @@ urlpatterns = [
     path('api/users/', UserViewSet.as_view({'get': 'list', 'post': 'create'}), name='user'),
     # path('api/request-verification-code/', RequestVerificationCodeView.as_view(), name='request_verification'),
 
+
+    path('register/', UserRegistrationView.as_view(), name='register'),
     path('auth/', AuthView.as_view(), name='auth'),
     path('profile/', UserProfileView.as_view(), name='profile'),
-    path('generate_invite_code/', GenerateInviteCodeView.as_view(), name='generate_invite_code'),
+    path('generate-invite-code/', GenerateInviteCodeView.as_view(), name='generate_invite_code'),
     path('invite_code/', InviteCodeView.as_view(), name='invite_code'),
     path('verify_code/', VerifyCodeView.as_view(), name='verify_code'),
     path('link-users/', LinkUsersView.as_view(), name='link_users'),
-    path('confirm_code/', ConfirmCodeView.as_view(), name='confirm_code'),
+    # path('confirm_code/', ConfirmCodeView.as_view(), name='confirm_code'),
 
 
 ]

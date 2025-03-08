@@ -13,6 +13,8 @@ import sys
 from datetime import timedelta
 from pathlib import Path
 import os
+
+from django.conf.global_settings import LOGIN_URL
 from dotenv import load_dotenv
 
 # from celery.schedules import crontab
@@ -113,7 +115,7 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
+LOGIN_URL = '/profile/'
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
 

@@ -104,6 +104,7 @@ class CustomUserManager(BaseUserManager):
 
 class User(AbstractUser):
     username = None
+    first_name = models.CharField(max_length=50, blank=True, verbose_name="Имя")
     phone_number = models.CharField(max_length=15, unique=True, verbose_name="Номер телефона")
     invite_code = models.CharField(max_length=6, unique=True, blank=True, default="", verbose_name="Инвайт-код")
     activated_invite_code = models.ForeignKey(
@@ -116,7 +117,7 @@ class User(AbstractUser):
     )
 
     USERNAME_FIELD = "phone_number"
-    REQUIRED_FIELDS = ["email"]
+    REQUIRED_FIELDS = ["first_name"]
 
     objects = CustomUserManager()
 

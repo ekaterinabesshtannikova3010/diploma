@@ -6,16 +6,77 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Профиль пользователя</title>
     <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    <style>
+        body {
+        font-family: Arial, sans-serif;
+        background-color: #2c2c2c; /* Темно-серый фон */
+        color: #f0f0f0; /* Светлый текст */
+        margin: 0;
+        padding: 0;
+    }
+
+    .container {
+        max-width: 400px;
+        margin: 50px auto;
+        padding: 20px;
+        background: #3a3a3a; /* Темно-серый контейнер */
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+    }
+
+    h1, h2 {
+        text-align: center;
+        color: #e0e0e0; /* Светло-серый заголовок */
+    }
+
+    p {
+        text-align: center;
+        color: #d0d0d0; /* Немного темнее текст */
+    }
+
+    input[type="text"] {
+        width: 100%;
+        padding: 10px;
+        margin: 10px 0;
+        border: 1px solid #555; /* Темная рамка */
+        border-radius: 4px;
+        background-color: #444; /* Темный фон для поля ввода */
+        color: #f0f0f0; /* Светлый текст */
+    }
+
+    button {
+        width: 100%;
+        padding: 10px;
+        background-color: #5a5a5a; /* Темно-серый фон кнопки */
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    button:hover {
+        background-color: #777; /* Светло-серый при наведении */
+    }
+
+    .alert {
+        margin: 10px 0;
+        padding: 10px;
+        background-color: #ff4d4d; /* Красный фон для предупреждений */
+        color: #fff; /* Белый текст для предупреждений */
+        border: 1px solid #ff0000; /* Красная рамка */
+        border-radius: 4px;
+    }
+    </style>
 </head>
 <body>
 <div class="container">
-    <h1>Привет, {{ user.name }}!</h1>
+    <h1>Привет, {{ user.first_name }}!</h1>
     <p>Ваш номер телефона: {{ user.phone_number }}</p>
 
     <h2>Пользователи, пришедшие по Вашему инвайт-коду:</h2>
     <ul>
         {% for invited_user in invited_users %}
-        <li>{{ invited_user.name }} - {{ invited_user.phone_number }}</li>
+        <li>{{ invited_user.first_name }} - {{ invited_user.phone_number }}</li>
         {% empty %}
         <li>Нет пользователей, пришедших по Вашему инвайт-коду.</li>
         {% endfor %}
@@ -29,6 +90,7 @@
         <input type="text" name="invite_code" placeholder="Введите инвайт-код" required>
         <button type="submit">Связать пользователей</button>
     </form>
+    <button id="users:home">Выйти</button>
 </div>
 
 <script>
