@@ -84,12 +84,15 @@
     <p id="invite-code-message">{{user.invite_code}}</p>
 
     <h2>Введите чужой инвайт-код для связки пользователей:</h2>
-    <form method="post" action="{% url 'users:link_users' %}">
+    <form method="POST" action="{% url 'users:link_users' %}">
         {% csrf_token %}
         <input type="text" name="invite_code" placeholder="Введите инвайт-код" required>
         <button type="submit">Связать пользователей</button>
     </form>
-    <button id="users:home">Выйти</button>
+    <form method="post" action="{% url 'users:logout' %}" style="display:inline">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-link nav-link">Выйти</button>
+    </form>
 </div>
 
 </body>

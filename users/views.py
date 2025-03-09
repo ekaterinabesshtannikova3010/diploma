@@ -1,34 +1,32 @@
 import logging
 import os
-import random
-import string
 from random import randint
 from time import sleep
-
 from django.conf import settings
 from django.contrib.auth import login
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin
+
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render, redirect
 from django.utils.crypto import get_random_string
-from django.utils.decorators import method_decorator
 from django.views import View
 from rest_framework import viewsets, status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.views import APIView
 from django.contrib import messages
 from smsaero import SmsAero, SmsAeroException
-
 from .models import User, InviteCode, LoginCode
-from .serializers import UserSerializer, InviteCodeSerializer, MyTokenObtainPairSerializer, AuthSerializer
-from users.services import SMSAero, api_user, send_sms
-
+from .serializers import UserSerializer, InviteCodeSerializer, MyTokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 import requests
+api_key = os.getenv('API_KEY')
+SMSAERO_API_KEY = os.getenv('API_KEY')
+SMSAERO_EMAIL = 'dolmatova3010@yandex.ru'
+import re
 
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 SMS_AERO_API_URL = 'https://smsaero.ru/api/'
 SMS_AERO_API_KEY = os.getenv('API_KEY')
 
@@ -37,96 +35,142 @@ def home(request):
     return render(request, 'users/base.html')
 
 
-class LoginView(View):
-    """
-        Контроллер для регистрации пользователя.
-    """
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
-    model = User
-    template_name = 'users/login.html'
 
-    def get(self, request):
-        return render(request, 'users/login.html')
+class UserRegistrationAPIView(APIView):
+    """API для регистрации пользователя."""
 
-    def post(self, request):
-        phone_number = request.POST['phone_number']
-        password = request.POST['password']
-        try:
-            user = User.objects.get(phone_number=phone_number)
-            if user.check_password(password):
-                request.session['user_id'] = user.id
-                return redirect('home')
-        except User.DoesNotExist:
-            pass
-        return render(request, 'users/login.html')
-
-
-class AuthView_API(APIView):
-    """Представление для авторизации с номером телефона и именем."""
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
-    model = User
     permission_classes = [AllowAny]
 
     def post(self, request):
-        phone_number = request.data.get('phone_number')  # Изменено на request.data
-        first_name = request.data.get('first_name')  # Изменено на request.data
-        try:
-            user = User.objects.get(phone_number=phone_number)
-            if user.check_password(first_name):  # Проверьте, что это правильная проверка
-                request.session['user_id'] = user.id
-                return Response({'message': 'Успешная авторизация!'}, status=200)  # Изменено на Response
-        except User.DoesNotExist:
-            return Response({'error': 'Пользователь не найден.'}, status=404)  # Добавлено сообщение об ошибке
-
-        return Response({'error': 'Неверные учетные данные.'}, status=400)
-
-    def get(self, request):
-        return Response({'message': 'GET запрос не поддерживается для этого эндпоинта.'},
-                        status=status.HTTP_405_METHOD_NOT_ALLOWED)
-
-
-class MyTokenObtainPairView(TokenObtainPairView):
-    serializer_class = MyTokenObtainPairSerializer
-
-
-class UserViewSet(viewsets.ViewSet):
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
-    model = User
-    template_name = 'users/confirm_code.html'
-    """
-    Представление для авторизации пользователя.
-    """
-
-    def list(self, request):
-        users = User.objects.all()
-        serializer = UserSerializer(users, many=True)
-        return Response(serializer.data)
-
-    def create(self, request):
-        serializer = UserSerializer(data=request.data)  # Инициализируем сериализатор с данными
-        if serializer.is_valid():  # Проверяем на валидность
-            serializer.save()  # Сохраняем объект
-            return Response(serializer.data, status=status.HTTP_201_CREATED)  # Возвращаем созданный объект
+        serializer = UserSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            logger.info(f"Пользователь зарегистрирован: {user.phone_number}")
+            return Response({'message': 'Регистрация прошла успешно!'}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def authorize(self, request):
-        phone_number = request.data.get('phone_number')
+
+class InviteCodeAPIView(APIView):
+    """API для отправки кода подтверждения на номер телефона."""
+
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        phone_number = request.data.get('phone')
         if not phone_number:
-            return Response({"error": "Укажите номер телефона."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Пожалуйста, введите номер телефона.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Имитация отправки кода
-        sleep(2)  # Задержка 1-2 секунды
-        auth_code = str(randint(1000, 9999))  # Генерация 4-значного кода
+        # Удаляем все нецифровые символы
+        phone_number = re.sub(r'\D', '', phone_number)
 
-        # Сохранение или обновление пользователя
-        user, created = User.objects.get_or_create(phone_number=phone_number)
-        user.verification_code = auth_code
-        user.save()
+        # Проверяем, что номер телефона состоит из 10-15 цифр
+        if len(phone_number) < 10 or len(phone_number) > 15:
+            return Response({'error': 'Некорректный номер телефона.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response({'auth_code': auth_code}, status=status.HTTP_200_OK)
+        try:
+            phone_number = int(phone_number)  # Преобразуем строку в целое число
+        except ValueError:
+            return Response({'error': 'Некорректный номер телефона. Убедитесь, что Вы ввели только цифры.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        code = LoginCode.create_code(str(phone_number))
+        logger.debug(f"Сгенерирован код: {code} для номера: {phone_number}")
+
+        # Отправляем SMS
+        is_success = self.send_sms(phone_number, f'Ваш код подтверждения: {code}')
+        if not is_success:
+            return Response({'error': 'Не удалось отправить сообщение, попробуйте еще раз.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        logger.debug(f"SMS успешно отправлено на номер: %s", phone_number)
+        return Response({'message': 'Код подтверждения отправлен на Ваш номер.'}, status=status.HTTP_200_OK)
+
+    def send_sms(self, phone: int, message: str) -> bool:
+        if settings.FAKE_SMS_SUBMIT:
+            return True
+
+        api = SmsAero('dolmatova3010@yandex.ru', 'TNzg_oub8xthiLQpuVli_1gLpr2YaRA6')
+        logger.debug(f"Отправка SMS на номер: {phone}. Сообщение: {message}")
+
+        try:
+            response = api.send_sms(phone, message)
+        except SmsAeroException as e:
+            logger.error(f'Failed to send sms due error %s', e)
+            return False
+        logger.debug(response)
+        is_success = response
+        if not is_success:
+            logger.error(f'Invalid smsaero response: %s', response)
+            return False
+
+        return True
+
+
+class VerifyCodeAPIView(APIView):
+    """API для проверки введенного кода подтверждения."""
+
+    def post(self, request):
+        entered_code = request.data.get('code')
+        phone_number = request.session.get('phone')
+
+        login_code = LoginCode.objects.filter(
+            phone_number=phone_number, code=entered_code, is_actual=True
+        ).first()
+        if not login_code:
+            return Response({'error': 'Неверный код. Пожалуйста, попробуйте снова.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = User.objects.filter(phone_number=phone_number).first()
+        if not user:
+            LoginCode.objects.filter(phone_number=phone_number).delete()
+            return Response({'error': 'Пользователь не найден. Пожалуйста, зарегистрируйтесь.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not user.invite_code:
+            user.invite_code = get_random_string(length=6)
+            user.save()
+
+        login(request, user)
+        LoginCode.objects.filter(phone_number=phone_number).delete()
+
+        return Response({'message': 'Вы успешно авторизованы!'}, status=status.HTTP_200_OK)
+
+    def get(self, request):
+        return Response({'message': 'Пожалуйста, отправьте код для проверки.'}, status=status.HTTP_200_OK)
+
+
+
+
+class UserProfileAPIView(APIView):
+    """API для профиля пользователя."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user  # Получаем текущего пользователя
+        invited_users = User.objects.filter(invite_code=user.invite_code)  # Получаем пользователей по инвайт-коду
+        return Response({'user': user, 'invited_users': invited_users.values()}, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        # Логика для связывания пользователей по инвайт-коду
+        invite_code = request.data.get('invite_code')
+        phone_number = request.data.get('phone_number')  # Получаем номер телефона
+        name = request.data.get('first_name')  # Получаем имя
+
+        if phone_number and name:  # Проверка на наличие номера телефона и имени
+            user = request.user
+            user.phone_number = phone_number
+            user.first_name = name
+            user.save()  # Сохранение пользователя
+
+            invited_users = User.objects.filter(invite_code=invite_code)
+            if invite_code:
+                return Response({'message': 'Пользователь успешно связан.'}, status=status.HTTP_200_OK)
+            else:
+                return Response({'error': 'Введите корректный инвайт-код.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({'error': 'Неверный номер телефона или имя!'}, status=status.HTTP_400_BAD_REQUEST)
+#
+# class MyTokenObtainPairView(TokenObtainPairView):
+#     serializer_class = MyTokenObtainPairSerializer
+
+
 
 
 class UserInviteCodeViewSet(viewsets.ModelViewSet):
@@ -203,15 +247,9 @@ class InviteCodeViewSet(viewsets.ModelViewSet):
 #
 #         return Response({"message": "Код подтверждения отправлен."}, status=status.HTTP_200_OK)
 
-api_key = os.getenv('API_KEY')
-SMSAERO_API_KEY = os.getenv('API_KEY')
-SMSAERO_EMAIL = 'dolmatova3010@yandex.ru'
-import re
 
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
 
-""" Django эндпоинты."""
+""" Django реализация."""
 
 
 class UserRegistrationView(View):
@@ -237,14 +275,6 @@ class UserRegistrationView(View):
             messages.error(request, 'Пожалуйста, заполните все поля!')
 
         return render(request, 'users/registration.html')
-
-
-class AuthView(View):
-    """Представление для авторизации с номером телефона и именем."""
-
-    def get(self, request):
-        logger.debug('Render login view')
-        return render(request, 'users/login.html')
 
 
 class InviteCodeView(View):
@@ -302,8 +332,8 @@ class InviteCodeView(View):
         except SmsAeroException as e:
             logger.error(f'Failed to send sms due error %s', e)
             return False
-
-        is_success = response['success']
+        logger.debug(response)
+        is_success = response
         if not is_success:
             logger.error(f'Invalid smsaero response: %s', response)
             return False
@@ -328,14 +358,13 @@ class VerifyCodeView(View):
         user = User.objects.filter(phone_number=phone_number).first()
         if not user:
             LoginCode.objects.filter(phone_number=phone_number).delete()
-            return redirect('users:registration')
+            return redirect('users:register')
 
         if not user.invite_code:
             user.invite_code = get_random_string(length=6)
             user.save()
 
         login(request, user)
-
 
         LoginCode.objects.filter(phone_number=phone_number).delete()
 
@@ -347,8 +376,6 @@ class VerifyCodeView(View):
 
 #######
 
-
-# @method_decorator(login_required, name='dispatch')
 class UserProfileView(View):
     """Представление для профиля пользователя."""
 
@@ -386,30 +413,19 @@ class UserProfileView(View):
 
 #############
 
-def generate_invite_code(length=6):
-    characters = string.ascii_letters + string.digits
-    while True:
-        code = ''.join(random.choices(characters, k=length))
-        if not InviteCode.objects.filter(code=code).exists():
-            return code
-
-
-class GenerateInviteCodeView(View):
-    def post(self, request):
-        invite_code = generate_invite_code()
-        InviteCode.objects.create(code=invite_code)
-        return JsonResponse({'invite_code': invite_code}, status=201)
-
-
 class LinkUsersView(View):
     def post(self, request):
         invite_code = request.POST.get('invite_code')
         user = request.user
 
-        # Логика связывания пользователей по инвайт-коду
         if invite_code:
-            messages.success(request, 'Пользователь успешно связан.')
+            invited_users = User.objects.filter(invite_code=invite_code)
+            for invited_user in invited_users:
+                invited_user.linked_users.add(user)
+                invited_user.save()
+
+            messages.success(request, 'Пользователи успешно связаны.')
         else:
             messages.error(request, 'Введите корректный инвайт-код.')
 
-        return redirect('users:profile')  # Перенаправление на страницу профиля
+        return redirect('users:profile')

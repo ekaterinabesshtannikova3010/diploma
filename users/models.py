@@ -103,11 +103,13 @@ class CustomUserManager(BaseUserManager):
         return self.get(phone_number=phone_number)
 
 
+
 class User(AbstractUser):
     username = None
     first_name = models.CharField(max_length=50, blank=True, verbose_name="Имя")
     phone_number = models.CharField(max_length=15, unique=True, verbose_name="Номер телефона")
     invite_code = models.CharField(max_length=6, unique=True, blank=True, default="", verbose_name="Инвайт-код")
+    linked_users = models.ManyToManyField('self', symmetrical=False, related_name='linked_by', blank=True)
     activated_invite_code = models.ForeignKey(
         'InviteCode', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='activated_by', verbose_name="Активированный инвайт-код"

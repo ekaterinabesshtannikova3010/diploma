@@ -19,12 +19,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     def get_token(cls, user):
         token = super().get_token(user)
 
-        # Добавление пользовательских полей в токен
-        token['username'] = user.username
+        token['first_name'] = user.first_name
         token['phone_number'] = user.phone_number
 
         return token
-
-class AuthSerializer(serializers.Serializer):
-    phone_number = serializers.CharField(required=True)
-    name = serializers.CharField(required=True)

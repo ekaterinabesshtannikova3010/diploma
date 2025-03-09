@@ -136,7 +136,6 @@ STATIC_URL = "static/"
 
 STATICFILES_DIRS = [
     BASE_DIR / "static",
-    "/var/www/static/",
 ]
 
 
@@ -204,5 +203,5 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=150),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
 }
-
+LOGOUT_REDIRECT_URL = '/'
 FAKE_SMS_SUBMIT = True if os.getenv("FAKE_SMS_SUBMIT") == "True" else False
