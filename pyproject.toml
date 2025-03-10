@@ -15,6 +15,7 @@ djangorestframework-simplejwt = "^5.4.0"
 rest-framework-simplejwt = "^0.0.2"
 requests = "^2.32.3"
 smsaero-api = "^3.0.0"
+coverage = "^7.6.12"
 
 
 
@@ -23,6 +24,11 @@ flake8 = "^7.1.2"
 mypy = "^1.15.0"
 black = "^25.1.0"
 isort = "^6.0.0"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.5"
+pytest-cov = "^6.0.0"
 
 [build-system]
 requires = ["poetry-core"]

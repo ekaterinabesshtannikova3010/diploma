@@ -8,8 +8,11 @@ from django.contrib.auth import login
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render, redirect
 from django.utils.crypto import get_random_string
+from django.utils.decorators import method_decorator
 from django.views import View
-from rest_framework import viewsets, status
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework import viewsets, status, permissions
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.decorators import action
@@ -70,7 +73,8 @@ class InviteCodeAPIView(APIView):
         try:
             phone_number = int(phone_number)  # Преобразуем строку в целое число
         except ValueError:
-            return Response({'error': 'Некорректный номер телефона. Убедитесь, что Вы ввели только цифры.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Некорректный номер телефона. Убедитесь, что Вы ввели только цифры.'},
+                            status=status.HTTP_400_BAD_REQUEST)
 
         code = LoginCode.create_code(str(phone_number))
         logger.debug(f"Сгенерирован код: {code} для номера: {phone_number}")
@@ -78,9 +82,14 @@ class InviteCodeAPIView(APIView):
         # Отправляем SMS
         is_success = self.send_sms(phone_number, f'Ваш код подтверждения: {code}')
         if not is_success:
-            return Response({'error': 'Не удалось отправить сообщение, попробуйте еще раз.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'error': 'Не удалось отправить сообщение, попробуйте еще раз.'},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        logger.debug(f"SMS успешно отправлено на номер: %s", phone_number)
+        #  Сохраняем номер в сессии
+        request.session['phone'] = str(phone_number)
+        request.session.modified = True
+        logger.debug(f"Номер {phone_number} сохранён в сессии.")
+
         return Response({'message': 'Код подтверждения отправлен на Ваш номер.'}, status=status.HTTP_200_OK)
 
     def send_sms(self, phone: int, message: str) -> bool:
@@ -107,40 +116,46 @@ class InviteCodeAPIView(APIView):
 class VerifyCodeAPIView(APIView):
     """API для проверки введенного кода подтверждения."""
 
+    authentication_classes = [SessionAuthentication]  # Добавляем поддержку сессий
+    permission_classes = [AllowAny]  # Разрешаем доступ всем
+
     def post(self, request):
         entered_code = request.data.get('code')
-        phone_number = request.session.get('phone')
+        phone_number = request.session.get('phone')  # Читаем номер из сессии
+        print("Request data:", request.data)
+        print("Session phone:", request.session.get('phone'))
+        if not phone_number:
+            return Response({'error': 'Сессия не найдена. Попробуйте заново отправить код.'},
+                            status=status.HTTP_400_BAD_REQUEST)
 
         login_code = LoginCode.objects.filter(
             phone_number=phone_number, code=entered_code, is_actual=True
         ).first()
         if not login_code:
-            return Response({'error': 'Неверный код. Пожалуйста, попробуйте снова.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Неверный код. Попробуйте снова.'}, status=status.HTTP_400_BAD_REQUEST)
 
         user = User.objects.filter(phone_number=phone_number).first()
         if not user:
             LoginCode.objects.filter(phone_number=phone_number).delete()
-            return Response({'error': 'Пользователь не найден. Пожалуйста, зарегистрируйтесь.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'error': 'Пользователь не найден. Пожалуйста, зарегистрируйтесь.'},
+                            status=status.HTTP_404_NOT_FOUND)
 
         if not user.invite_code:
             user.invite_code = get_random_string(length=6)
             user.save()
 
-        login(request, user)
+        login(request, user)  # Авторизуем пользователя
+        request.session['user_id'] = user.id  # Явно сохраняем пользователя в сессии
         LoginCode.objects.filter(phone_number=phone_number).delete()
 
         return Response({'message': 'Вы успешно авторизованы!'}, status=status.HTTP_200_OK)
 
-    def get(self, request):
-        return Response({'message': 'Пожалуйста, отправьте код для проверки.'}, status=status.HTTP_200_OK)
 
-
-
-
+@method_decorator(csrf_exempt, name='dispatch')
 class UserProfileAPIView(APIView):
     """API для профиля пользователя."""
-
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
+    # permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user = request.user  # Получаем текущего пользователя
