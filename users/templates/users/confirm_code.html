@@ -1,0 +1,57 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #000; /* Черный фон */
+            color: #fff; /* Белый текст */
+        }
+        .container {
+            background-color: #222; /* Темно-серый фон для контейнера */
+            border-radius: 5px; /* Закругленные углы */
+            padding: 20px; /* Отступы внутри контейнера */
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.1); /* Тень для контейнера */
+        }
+        .alert {
+            background-color: #444; /* Темно-серый фон для сообщений */
+            color: #fff; /* Белый текст для сообщений */
+        }
+        .btn-primary {
+            background-color: #fff; /* Белый фон для кнопки */
+            color: #000; /* Черный текст для кнопки */
+        }
+        .btn-primary:hover {
+            background-color: #ddd; /* Светло-серый фон при наведении */
+        }
+        a {
+            color: #fff; /* Белый цвет для ссылок */
+        }
+        a:hover {
+            color: #ddd; /* Светло-серый цвет для ссылок при наведении */
+        }
+    </style>
+    <title>Подтверждение кода</title>
+</head>
+<body>
+<div class="container mt-5">
+    <h2>Подтверждение кода</h2>
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+    <form method="POST">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="code">Введите Ваш инвайт-код:</label>
+            <input type="text" class="form-control" id="code" name="code" required>
+        </div>
+        <button type="submit" class="btn btn-primary"><a href="{% url 'users:home' %}" class="text-white">Подтвердить код</button>
+    </form>
+</div>
+</body>
+</html>
