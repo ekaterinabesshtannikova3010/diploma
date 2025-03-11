@@ -1,33 +1,26 @@
 import logging
 import os
-from random import randint
-from time import sleep
 from django.conf import settings
 from django.contrib.auth import login
-
-from django.http import JsonResponse
-from django.shortcuts import get_object_or_404, render, redirect
+from django.shortcuts import render, redirect
 from django.utils.crypto import get_random_string
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
-from rest_framework import viewsets, status, permissions
-from rest_framework.authentication import SessionAuthentication
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework import status, permissions
+from rest_framework.authentication import SessionAuthentication, BasicAuthentication
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from rest_framework.decorators import action
 from rest_framework.views import APIView
 from django.contrib import messages
 from smsaero import SmsAero, SmsAeroException
-from .models import User, InviteCode, LoginCode
-from .serializers import UserSerializer, InviteCodeSerializer, MyTokenObtainPairSerializer
-from rest_framework_simplejwt.views import TokenObtainPairView
-import requests
+from .models import User, LoginCode
+from .serializers import UserSerializer
+import re
+
 api_key = os.getenv('API_KEY')
 SMSAERO_API_KEY = os.getenv('API_KEY')
 SMSAERO_EMAIL = 'dolmatova3010@yandex.ru'
-import re
-
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 SMS_AERO_API_URL = 'https://smsaero.ru/api/'
@@ -36,7 +29,6 @@ SMS_AERO_API_KEY = os.getenv('API_KEY')
 
 def home(request):
     return render(request, 'users/base.html')
-
 
 
 class UserRegistrationAPIView(APIView):
@@ -151,16 +143,26 @@ class VerifyCodeAPIView(APIView):
         return Response({'message': 'Вы успешно авторизованы!'}, status=status.HTTP_200_OK)
 
 
+class CsrfExemptSessionAuthentication(SessionAuthentication):
+    """Аутентификация без CSRF для API"""
+
+    def enforce_csrf(self, request):
+        return  # Отключаем CSRF
+
+
 @method_decorator(csrf_exempt, name='dispatch')
 class UserProfileAPIView(APIView):
     """API для профиля пользователя."""
+    authentication_classes = [CsrfExemptSessionAuthentication, BasicAuthentication]
     permission_classes = [permissions.IsAuthenticated]
+
     # permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        user = request.user  # Получаем текущего пользователя
-        invited_users = User.objects.filter(invite_code=user.invite_code)  # Получаем пользователей по инвайт-коду
-        return Response({'user': user, 'invited_users': invited_users.values()}, status=status.HTTP_200_OK)
+        user = request.user
+        invited_users = User.objects.filter(invite_code=user.invite_code)
+        return Response({'user': user.username, 'invited_users': list(invited_users.values())},
+                        status=status.HTTP_200_OK)
 
     def post(self, request):
         # Логика для связывания пользователей по инвайт-коду
@@ -181,87 +183,6 @@ class UserProfileAPIView(APIView):
                 return Response({'error': 'Введите корректный инвайт-код.'}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({'error': 'Неверный номер телефона или имя!'}, status=status.HTTP_400_BAD_REQUEST)
-#
-# class MyTokenObtainPairView(TokenObtainPairView):
-#     serializer_class = MyTokenObtainPairSerializer
-
-
-
-
-class UserInviteCodeViewSet(viewsets.ModelViewSet):
-    """
-    Представление для активации инвайт-кода.
-    """
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
-
-    @action(detail=True, methods=['post'])
-    def activate_invite_code(self, request, pk=None):
-        user = self.get_object()
-        invite_code = request.data.get('invite_code')
-
-        invite = get_object_or_404(InviteCode, code=invite_code)
-
-        if invite.is_active:
-            user.activated_invite_code = invite.code
-            user.save()
-            return Response({'message': 'Инвайт-код активирован успешно.'}, status=status.HTTP_200_OK)
-        else:
-            return Response({'error': 'Инвайт-код не активен.'}, status=status.HTTP_400_BAD_REQUEST)
-
-    @action(detail=False, methods=['get'])
-    def users_with_invite_code(self, request):
-        user = request.user  # Получаем текущего пользователя
-        users = User.objects.filter(
-            activated_invite_code=user.activated_invite_code)  # Фильтруем пользователей по инвайт-коду
-        serializer = UserSerializer(users, many=True)
-        return Response(serializer.data)
-
-
-# class UserProfileViewSet(viewsets.ModelViewSet):
-#     """
-#     Представление для получения профиля пользователя.
-#     """
-#     queryset = User.objects.all()
-#     serializer_class = UserSerializer
-#
-#     @action(detail=True, methods=['get'])
-#     def profile(self, request, pk=None):
-#         user = self.get_object()
-#         serializer = UserSerializer(user)
-#         return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-class InviteCodeViewSet(viewsets.ModelViewSet):
-    queryset = InviteCode.objects.all()
-    serializer_class = InviteCodeSerializer
-
-
-# class RequestVerificationCodeView(APIView):
-#     """
-#     Представление для отправки кода подтверждения на телефон.
-#     """
-#     model = User
-#     template_name = 'users/сonfirmation.html'
-#
-#     def get(self, request):
-#         return render(request, 'users/login.html')
-#
-#     def post(self, request):
-#         phone_number = request.data.get('phone_number')
-#         if not phone_number:
-#             return Response({"error": "Номер телефона обязателен."}, status=status.HTTP_400_BAD_REQUEST)
-#
-#         # Отправка кода
-#         code = request_verification_code(phone_number)
-#
-#         # Сохранение или обновление пользователя
-#         user, created = User.objects.get_or_create(phone_number=phone_number)
-#         user.verification_code = code
-#         user.save()
-#
-#         return Response({"message": "Код подтверждения отправлен."}, status=status.HTTP_200_OK)
-
 
 
 """ Django реализация."""
@@ -427,9 +348,12 @@ class UserProfileView(View):
 
 
 #############
-
 class LinkUsersView(View):
     def post(self, request):
+        if not request.user.is_authenticated:  # Проверка на авторизацию
+            messages.error(request, 'Вы должны войти в систему, чтобы связать пользователей.')
+            return redirect('users:invite_code')  # Перенаправление на страницу входа
+
         invite_code = request.POST.get('invite_code')
         user = request.user
 

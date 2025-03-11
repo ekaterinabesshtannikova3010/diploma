@@ -1,0 +1,54 @@
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    command: sh -c "poetry run python manage.py runserver 0.0.0.0:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    env_file:
+      - .env
+
+
+  db:
+    image: postgres:15
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB" ]
+      interval: 10s
+      retries: 5
+      timeout: 5s
+    env_file:
+      - .env
+
+
+  redis:
+    image: redis:7.4
+    ports:
+      - "6379:6379"
+
+
+  celery:
+    build: .
+    command: sh -c "poetry run celery -A config.celery worker --loglevel=INFO -B"
+    restart: on-failure
+    depends_on:
+      - db
+      - redis
+      - web
+    env_file:
+    - .env
+    environment:
+      PG_DB_HOST: db
+      broker_url: redis://redis:6379/0
+
+volumes:
+  postgres_data:

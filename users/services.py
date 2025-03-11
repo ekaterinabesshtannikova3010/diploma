@@ -1,9 +1,7 @@
 import os
-import random
-import time
 import requests
 from dotenv import load_dotenv
-from smsaero import SmsAero, SmsAeroException
+from smsaero import SmsAero
 
 load_dotenv()
 

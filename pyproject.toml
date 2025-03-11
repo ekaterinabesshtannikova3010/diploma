@@ -16,6 +16,8 @@ rest-framework-simplejwt = "^0.0.2"
 requests = "^2.32.3"
 smsaero-api = "^3.0.0"
 coverage = "^7.6.12"
+drf-yasg = "^1.21.10"
+celery = "^5.4.0"
 
 
 
